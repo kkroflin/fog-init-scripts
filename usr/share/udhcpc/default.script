@@ -1,6 +1,8 @@
 #!/bin/sh
 
-# udhcpc script edited by Tim Riker <Tim@Rikers.org>
+# udhcpc script edited by:
+#	Tim Riker <Tim@Rikers.org>
+#	Kresimir Kroflin <kkroflin@gmail.com>
 
 [ -z "$1" ] && echo "Error: should be called from udhcpc" && exit 1
 
@@ -8,6 +10,29 @@ RESOLV_CONF="/etc/resolv.conf"
 [ -e $RESOLV_CONF ] || touch $RESOLV_CONF
 [ -n "$broadcast" ] && BROADCAST="broadcast $broadcast"
 [ -n "$subnet" ] && NETMASK="netmask $subnet"
+
+clear_routes() {
+	echo "deleting routers"
+	$(route -n | \
+		grep "$interface" | \
+		awk -v interface=$interface '{
+			if ($2 != "0.0.0.0")
+				print "route del -net "$1" gw "$2" netmask "$3" dev "interface""
+		}'
+	)
+}
+
+add_classless_routes() {
+        local max=128
+        local type
+        while [ -n "$1" -a -n "$2" -a $max -gt 0 ]; do
+                [ ${1##*/} -eq 32 ] && type=host || type=net
+                echo "static route for $type $1 via $2"
+                route add -$type "$1" gw "$2" dev "$interface"
+                max=$(($max-1))
+                shift 2
+        done
+}
 
 case "$1" in
 	deconfig)
@@ -38,13 +63,20 @@ case "$1" in
 		fi
 		/sbin/ifconfig $interface $ip $BROADCAST $NETMASK
 
+		clear_routes
+
+		if [ -n "$staticroutes" ]; then
+			add_classless_routes $staticroutes
+		fi
+
 		if [ -n "$router" ] ; then
-			echo "deleting routers"
-			while route del default gw 0.0.0.0 dev $interface 2> /dev/null; do
+			echo "deleting default routers"
+			while route del default netmask 0.0.0.0 dev $interface 2> /dev/null; do
 				:
 			done
 
 			for i in $router ; do
+				echo "adding default gw $i dev $interface"
 				route add default gw $i dev $interface
 			done
 		fi

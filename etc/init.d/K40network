@@ -6,7 +6,7 @@ for iface in $ifaces; do
         continue
     fi
     echo "Stopping $iface interface"
-    /sbin/udhcpc -i $iface -R
+    /sbin/udhcpc -i $iface -O staticroutes -R
     /sbin/ip link set $iface down
 done
 exit $?

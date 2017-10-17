@@ -35,7 +35,7 @@ for iface in $ifaces; do
     done
     [[ $linkstate -eq 0 ]] && echo "No link detected on $iface for $timeout seconds, skipping it." && continue
     for retry in $(seq 3); do
-        /sbin/udhcpc -i $iface --now
+        /sbin/udhcpc -i $iface -O staticroutes --now
         ustat="$?"
         curl -Ikfso /dev/null "${web}"/index.php --connect-timeout 5
         cstat="$?"
